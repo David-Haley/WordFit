@@ -18,16 +18,23 @@ recursion is invoked. This will occur if the puzzle has multiple or no solution.
 If no switch is supplies the queue solution is invoked. For example the
 following would use iteration: wordfit CM_20200504 i
 
-Blank_Files creates creates a skeletal grid and an empty word list which can
-then be edited with your favorite text editor. It takes three parameters,
-Blank_Files Base_Name X Y which creates a grid file Base_Name_Grid.txt which is
-X characters wide by Y characters high and an empty Base_Name_List.txt file. For
-example Blank_Files CM_20200505 17 17 would produce a grid file
-CM20200505_Grid.txt which is 17 characters square.
+Blank_Files creates a skeletal grid file and a word list file which can then be
+edited with your favorite text editor. It takes three parameters, Base_Name X Y
+which creates a grid file Base_Name_Grid.txt which is X characters wide by Y
+characters high and a list file Base_Name_List.txt. To facilitate the use of OCR
+Blank_Files can read files of the form Base_Name_List_m.txt (where m is 0,
+1, ...). If files of the form Base_Name_List_m.txt exist the list file is
+populated from the their content. Content of the form "nn LETTERS" (where nn is
+a positive number) will be not transferred to the list file. If no files are
+read an empty list file will be created.
 
-The digits in the header, sides and footer are there to act as a ruler to aid
-input (overwriting spaces), they are used by Word_Fit to check the integrity of
-the grid file.
+For example Blank_Files CM_20200505 17 17 would produce a grid file
+CM20200505_Grid.txt which is 17 characters square and a list file
+CM20200505_List.txt.
+
+The skeletal grid file contains digits in the header, sides and footer to act as
+a ruler to aid in editing (overwriting spaces etc.). The boarder characters are
+used by Word_Fit to check the integrity of the grid file.
 
 Example input files from the Courier Mail (Brisbane daily newspaper) are
 included. Note CM_20200422 has four solutions.

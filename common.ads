@@ -2,7 +2,7 @@
 -- suit of programs.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 18/04/2020
+-- Last Edit : 11/05/2020
 
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Maps; use Ada.Strings.Maps;
@@ -19,6 +19,9 @@ package Common is
    Ruler_Set : constant Character_Set := To_Set (Ruler_End_Ch & "0123456789");
 
    subtype Crossword_Letters is Character range 'A' .. 'Z';
+   Crossword_Range : constant Character_Range :=
+     (Crossword_Letters'First, Crossword_Letters'Last);
+   Crossword_Set : constant Character_Set := To_Set (Crossword_Range);
    subtype Grid_Characters is Character with Static_Predicate =>
      Grid_Characters in Crossword_Letters | Block_Ch | Open_Ch;
 

@@ -1,11 +1,21 @@
 -- This progrem creates a blank crosswoed grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 03/04/2020
+-- Last Edit : 11/05/2020
+-- 20200511 : Ability to read mutiple files containing partial word lists into
+-- into the Base_Name_List.txt file. The files to be combined must nave names
+-- of the form Base_Name_List_n.txt where n is 0, 1, 2 ...
 
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Text_IO; use Ada.Text_IO;
+With Ada.Text_IO.Unbounded_IO; use Ada.Text_IO.Unbounded_IO;
+with Ada.Strings; use Ada.Strings;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
+with Ada.Strings.Equal_Case_Insensitive;
+with Ada.Strings.Maps; use Ada.Strings.Maps;
+with Ada.Strings.Maps.Constants; use Ada.Strings.Maps.Constants;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Directories; use Ada.Directories;
 with Common; use Common;
 
 procedure Blank_Files is
@@ -21,26 +31,95 @@ procedure Blank_Files is
       New_Line (Grid_File);
    end Ruler;
 
+   procedure Build_List is
+
+      function Build_Part_Name (File_Number : in Natural) return String is
+
+      begin -- Build_Part_Name
+         return Argument (1) & "_List_" &
+           Trim (Natural'Image (File_Number), Left) & ".txt";
+      end Build_Part_Name;
+
+      List_File, Part_File : File_Type;
+      File_Number : Natural := 0;
+      Text : Unbounded_String;
+      Delimiter_Set : Character_Set := To_Set (' ');
+      Letters : String := "LETTERS";
+      Start_At, First : Positive;
+      Last : Natural;
+
+   begin -- Build_List
+      Create (List_File, Out_File, Argument (1) & List_Name);
+      Put_Line ("Building word list file:");
+      Put_Line (Name (List_File));
+      while Exists (Build_Part_Name (File_Number)) loop
+         Open (Part_File, In_File, Build_Part_Name (File_Number));
+         Put_Line ("Reading partial list file:");
+         Put_Line (Name (Part_File));
+         while not End_Of_File (Part_File) loop
+            Get_Line (Part_File, Text);
+            Start_At := 1;
+            while Start_At < Length (Text) loop
+               Translate (Text, Upper_Case_Map);
+               Find_Token (Text, Delimiter_Set, Start_At, Outside, First, Last);
+               if Last > 0 then
+                  if Ada.Strings.Fixed.Count (Slice (Text, First, Last),
+                                              Crossword_Set) =
+                    Last - First + 1 then
+                     -- is probable word add to list
+                     Put_Line (List_File, Translate (Slice (Text, First, Last),
+                               Upper_Case_Map));
+                  elsif Ada.Strings.Fixed.Count (Slice (Text, First, Last),
+                                                 Decimal_Digit_Set) =
+                    Last - First + 1 then
+                     -- skip number assumed to be "n LETTERS"
+                     Start_At := Last + 1;
+                     Find_Token (Text, Delimiter_Set, Start_At, Outside, First,
+                                 Last);
+                     if not Ada.Strings.Equal_Case_Insensitive (Slice (Text,
+                                                                First, Last),
+                                                                Letters) then
+                        Put_Line ("Warning expected """ & Letters &
+                                    " and found """ & Slice (Text, First, Last)
+                                  & """ in file:");
+                        Put_Line (Name (Part_File));
+                        Put_Line ("at Line:" &
+                                    Positive_Count'Image (Line (Part_File)));
+                     end if; -- Equal_Case_Insensitive (Slice (Text, First ...
+                     -- not transferred to List_File
+                  end if; -- Ada.String.Fixed.Count (Translate (Slice (Text, ...
+               end if; -- Last > 0
+               Start_At := Last + 1;
+            end loop; -- Start_At < Length (Text)
+         end loop;
+         Close (Part_File);
+         File_Number := File_Number + 1;
+      end loop; -- Exists (Build_Part_Name (File_Number))
+      Put_Line ("Words added to list" &
+                  Natural'Image (Natural (Line (List_File)) - 1));
+      Close (List_File);
+   end Build_List;
+
    Height, Width : Positive;
    Grid_File : File_Type;
-   List_File : File_Type;
 
 begin -- Blank_Files
    if Argument_Count = 3 then
       Create (Grid_File, Out_File, Argument (1) & Grid_Name);
-      Create (List_File, Out_File, Argument (1) & List_Name);
       Width := Positive'Value (Argument (2));
       Height := Positive'Value (Argument (3));
+      Put_Line ("Building skeletal grid file:");
+      Put_Line (Name (Grid_File));
       Ruler (Grid_File, Width);
       for Y in Positive range 1 .. Height loop
          Unit_IO.Put (Grid_File, Y mod (Units'Last + 1), 0);
-         Put (Grid_File, Width * Open_Ch);
+         Ada.Text_IO.Put (Grid_File, Width * Open_Ch);
          Unit_IO.Put (Grid_File, Y mod (Units'Last + 1), 0);
          New_Line (Grid_File);
       end loop; -- Y in Positive range 1 .. Height
       Ruler (Grid_File, Width);
-      Close (List_File);
       Close (Grid_File);
+      Build_List;
    else
       Put ("Usage: Blank_Grid Base_File_Name Width Height");
    end if; -- Argument_Count = 3

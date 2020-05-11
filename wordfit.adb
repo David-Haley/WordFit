@@ -2,7 +2,8 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 30/04/2020
+-- Last Edit : 11/05/2020
+-- 20200511 : All words placed or not placed mesage written to Debug_File.
 -- 20200430 : Full recursive search invoked via a command line switch.
 -- 20200429 : Queue solution strategy invoked via command libe switch.
 -- 20200428 : Fixed issue with CM_20200409 raising a Fill_List exception due to
@@ -1148,16 +1149,19 @@ procedure WordFit is
             end if; -- not Fill_List (Fq).Used
          end loop; -- Fill_Queue.Current_Use > 0 and not No_Progress
          Put (Grid);
-         Put_Line (Debug_File,
-                   "Elements Processed:" & Natural'Image (Element_Count));
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Elements Processed:" & Natural'Image (Element_Count));
+         Put (Debug_File,
+                   "Elements Processed:" & Natural'Image (Element_Count));
          if Words_Placed = Word_Indices'Last then
+            Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
             Put (" All words placed");
          else
             Put (" Words not placed:" &
                    Natural'Image (Word_Indices'Last - Words_Placed));
+            Put_Line (Debug_File, " Words not placed:" &
+                        Natural'Image (Word_Indices'Last - Words_Placed));
             Debug_Data_Structures (Grid, Word_List, Fill_List, Word_Map);
             delay Solution_Time;
             Put_Line (Debug_File, "Starting Search");
@@ -1281,8 +1285,10 @@ procedure WordFit is
          end loop; -- repeat attempting to place words
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Passes:" & Positive'Image (Pass_Count));
+         Put (Debug_File, "Passes:" & Positive'Image (Pass_Count));
          Put (Grid);
          if All_Placed then
+            Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
             Put (" All words placed");
          else
@@ -1292,6 +1298,8 @@ procedure WordFit is
                end if; -- not Fill_List (I).Used
             end loop; -- F in Iterate (Fill_List)
             Put (" Words not placed:" & Natural'Image (Words_Not_Placed));
+            Put_Line (Debug_File, " Words not placed:" &
+                        Natural'Image (Words_Not_Placed));
             Debug_Data_Structures (Grid, Word_List, Fill_List, Word_Map);
             delay Solution_Time;
             Put_Line (Debug_File, "Starting Search");
