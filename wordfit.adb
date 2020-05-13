@@ -2,7 +2,15 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 11/05/2020
+-- Last Edit : 13/05/2020
+-- 20200513 : Reports Fill_Queue length if Queue stretegy does not find a
+-- solution. Check_Unique used to refresh the Fill_Queue if progress stalls.
+-- The Check_Unique procedure was made generic so that the same code could be
+-- used in both the Iteration and Queue strategies. The Update_Procedure
+-- requirements are different for the two strategies, hence the need for it to
+---be generic. CM_20200513 caused the Queue strategy to fail because it got to
+-- the situation where the only way to progress was to apply the Check_Unique
+-- rule.
 -- 20200511 : All words placed or not placed mesage written to Debug_File.
 -- 20200430 : Full recursive search invoked via a command line switch.
 -- 20200429 : Queue solution strategy invoked via command libe switch.
@@ -316,7 +324,8 @@ procedure WordFit is
          Put_Line (Debug_File, X_Coordinates'Last * '-');
       end Put;
 
-      procedure Put_Map (Word_List : in Word_Lists; Word_Map : in  Word_Maps.Map) is
+      procedure Put_Map (Word_List : in Word_Lists;
+                         Word_Map : in  Word_Maps.Map) is
 
       begin -- Put_Map
          Put_Line (Debug_File, "Word_Map Structure Report");
@@ -796,6 +805,76 @@ procedure WordFit is
          Symmetric_Difference (Prime_Word_Set, Exclusion_Set);
       end Negation_Check;
 
+      generic
+
+         with procedure Update_Procedure (Grid : in out Grids;
+                                          Word_List : in out Word_Lists;
+                                          Fill_List : in out Fill_Lists.Vector;
+                                          F : in Fill_List_Indices;
+                                          Word_Index : in Word_Indices;
+                                          Update_Type : in Update_Types);
+
+      procedure Check_Unique (Grid : in out Grids;
+                              Word_List : in out Word_Lists;
+                              Fill_List : in out Fill_Lists.Vector;
+                              Progress : in out Boolean);
+
+      -- Finds the situation where there is a single fill list element
+      -- for a particular word length and the word list entry that matches
+      -- that length. The data structures and screen are updated for any
+      -- word found. It is generic becaise different forms of update are
+      -- required.
+
+      procedure Check_Unique (Grid : in out Grids;
+                              Word_List : in out Word_Lists;
+                              Fill_List : in out Fill_Lists.Vector;
+                              Progress : in out Boolean) is
+
+         -- Finds the situation where there is a single fill list element
+         -- for a particular word length and the word list entry that matches
+         -- that length. The data structures and screen are updated for any
+         -- word found.
+
+         type Count_Elements is record
+            Count : Natural := 0;
+            Stored_Index : Fill_Lists.Extended_Index := Fill_Lists.No_index;
+         end record; -- Count_Element
+
+         Count_Array : array (Word_Lengths) of Count_Elements;
+         Placement_Set : Word_Sets.Set := Word_Sets.Empty_Set;
+
+      begin -- Check_Unique
+         for F in Fill_List_Indices range 1 .. Last_Index (Fill_List) loop
+            if not Fill_List (F).Used then
+               Count_Array (Fill_List (F).Word_Length).Count :=
+                 Count_Array (Fill_List (F).Word_Length).Count + 1;
+               Count_Array (Fill_List (F).Word_Length).Stored_Index := F;
+            end if; -- not Fill_List (F).Used
+         end loop; -- F in Fill_List_Indices range 1 ...
+         for W in Word_Lengths loop
+            if Count_Array (W).Count = 1 then
+               Clear (Placement_Set);
+               Progress := True;
+               for I in Word_Indices loop
+                  if not Word_List (I).Used and
+                    Length (Word_List (I).Word) = W then
+                     Include (Placement_Set, I);
+                  end if; -- I in Word_Indices
+               end loop; -- I in Word_Indices
+               if Length (Placement_Set) = 1 then
+                  Update_Procedure (Grid, Word_List, Fill_List,
+                                    Count_Array (W).Stored_Index,
+                                    First_Element (Placement_Set), 'u');
+               else
+                  raise Unique_Error with "One remaining space of length" &
+                    Word_Lengths'Image (W) & " with" &
+                    Natural'Image (Count_Array (W).Count) &
+                    " words remaining to be placed.";
+               end if; -- Length (Placement_Set) = 1
+            end if; -- Count_Array (W).Count = 1
+         end loop; -- W in Word_Lengths
+      end Check_Unique;
+
       function Solution_Index (X : in X_Coordinates; Y : in Y_Coordinates)
                                   return Solution_Indices is
 
@@ -1050,6 +1129,19 @@ procedure WordFit is
          delay Word_Time;
       end Update;
 
+      function Words_Not_Placed (Word_List : in Word_Lists) return Natural is
+
+         Result : Natural := 0;
+
+      begin -- Words_Not_Placed
+         for W in Word_Indices loop
+            if not Word_List (W).Used then
+               Result := Result + 1;
+            end if; -- not Word_List (W).Used
+         end loop; -- W in Word_Indices
+         return Result;
+      end Words_Not_Placed;
+
       procedure Queued_Place_Words (Grid : in out Grids;
                                        Word_List : in out Word_Lists;
                                        Fill_List : in out Fill_Lists.Vector;
@@ -1067,10 +1159,11 @@ procedure WordFit is
          package Fill_Queues is new
            Ada.Containers.Unbounded_Synchronized_Queues (Fill_Queue_Interfaces);
 
+         Fill_Queue : Fill_Queues.Queue;
+
          procedure Update_Queue (Grid : in Grids;
                                  Fill_List : in Fill_Lists.Vector;
-                                 Fq : in Fill_List_Indices;
-                                 Fill_Queue : in out Fill_Queues.Queue) is
+                                 Fq : in Fill_List_Indices) is
 
             X : X_Coordinates := Fill_List (Fq).X;
             Y : Y_Coordinates := Fill_List (Fq).Y;
@@ -1095,13 +1188,29 @@ procedure WordFit is
             end loop; -- P in Letter_Positions range 1 ...
          end Update_Queue;
 
-         Fill_Queue : Fill_Queues.Queue;
+         procedure Combined_Update (Grid : in out Grids;
+                                    Word_List : in out Word_Lists;
+                                    Fill_List : in out Fill_Lists.Vector;
+                                    F : in Fill_List_Indices;
+                                    Word_Index : in Word_Indices;
+                                    Update_Type : in Update_Types) is
+
+         begin -- Combined_Update
+            Update (Grid, Word_List, Fill_List, F, Word_Index, Update_Type);
+            Update_Queue (Grid, Fill_List, F);
+         end Combined_Update;
+
+         procedure Check_Unique_Q is new
+           Check_Unique (Update_Procedure => Combined_Update);
+
          Fq : Fill_List_Indices;
-         Words_Placed, Element_Count: Natural := 0;
+         Element_Count : Natural := 0;
          Progress_Limit : Positive;
          Placement_Set : Word_Sets.Set := Word_Sets.Empty_Set;
          Solution_Set : Solution_Sets.Set := Solution_Sets.Empty_Set;
          Update_Type : Update_Types;
+         Progress : Boolean;
+         Previous_Use : Count_Type;
 
       begin -- Queued_Place_Words
          Put_Line (Debug_File, "Queued solution strategy");
@@ -1109,8 +1218,7 @@ procedure WordFit is
          -- initialise Fill_Queue based on intial word
          for F in Fill_List_Indices range 1 .. Last_Index (Fill_List) loop
             if Fill_List (F).Used then
-               Update_Queue (Grid, Fill_List, F, Fill_Queue);
-               Words_Placed := Words_Placed + 1;
+               Update_Queue (Grid, Fill_List, F);
             end if; -- Fill_List (F).Used
          end loop; -- F in Fill_List_Indices range 1 .. Last_Index (Fill_List)
          Progress_Limit := Positive (2 * Fill_Queue.Current_Use);
@@ -1137,37 +1245,53 @@ procedure WordFit is
                end if; -- Length (Placement_Set) > 1
                if Length (Placement_Set) = 1 then
                   -- unique word, place word
-                  Update (Grid, Word_List, Fill_List, Fq,
+                  Combined_Update (Grid, Word_List, Fill_List, Fq,
                           First_Element (Placement_Set), Update_Type);
-                  Update_Queue (Grid, Fill_List, Fq, Fill_Queue);
-                  Words_Placed := Words_Placed + 1;
                   Progress_Limit := Element_Count +
                     Positive (2 * Fill_Queue.Current_Use);
                else
                   Fill_Queue.Enqueue (Fq);
                end if; -- Length (Placement_Set) = 1
             end if; -- not Fill_List (Fq).Used
+            if Element_Count = Progress_Limit then
+               Progress := False;
+               Previous_Use := Fill_Queue.Current_Use;
+               Check_Unique_Q (Grid, Word_List, Fill_List, Progress);
+               if Progress then
+                  Put_Line (Debug_File, "Queue refreshed with" &
+                              Count_Type'Image (Fill_Queue.Current_Use -
+                                Previous_Use) & " elements");
+                  Progress_Limit := Element_Count +
+                    Positive (2 * Fill_Queue.Current_Use);
+               end if; -- Progress
+            end if; -- Element_Count = Progress_Limit
          end loop; -- Fill_Queue.Current_Use > 0 and not No_Progress
          Put (Grid);
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Elements Processed:" & Natural'Image (Element_Count));
          Put (Debug_File,
-                   "Elements Processed:" & Natural'Image (Element_Count));
-         if Words_Placed = Word_Indices'Last then
+              "Elements Processed:" & Natural'Image (Element_Count));
+         if Words_Not_Placed (Word_List) = 0 then
             Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
+            -- If verification failss the screen display will not show all words
+            -- placed.
             Put (" All words placed");
          else
+            Put (" Queue length:" &
+                   Count_Type'Image (Fill_Queue.Current_Use));
+            Put (Debug_File, " Queue length:" &
+                   Count_Type'Image (Fill_Queue.Current_Use));
             Put (" Words not placed:" &
-                   Natural'Image (Word_Indices'Last - Words_Placed));
+                   Natural'Image (Words_Not_Placed (Word_List)));
             Put_Line (Debug_File, " Words not placed:" &
-                        Natural'Image (Word_Indices'Last - Words_Placed));
+                        Natural'Image (Words_Not_Placed (Word_List)));
             Debug_Data_Structures (Grid, Word_List, Fill_List, Word_Map);
             delay Solution_Time;
             Put_Line (Debug_File, "Starting Search");
             Search (Grid, Word_List, Fill_List, Word_Map, Solution_Set, 0);
             Display (Solution_Set);
-         end if; --  Words_Placed = Word_Indices'Last
+         end if; -- Words_Not_Placed (Word_List) = 0
       end Queued_Place_Words;
 
       procedure Iterative_Place_Words (Grid : in out Grids;
@@ -1182,60 +1306,12 @@ procedure WordFit is
          -- Alternatively if all words have been placed, that is, the puzzle has
          -- been completed.
 
-         procedure Check_Unique (Grid : in out Grids;
-                                 Word_List : in out Word_Lists;
-                                 Fill_List : in out Fill_Lists.Vector;
-                                 Progress : in out Boolean) is
-
-            -- Finds the situation where there is a single fill list element
-            -- for a particular word length and the word list entry that matches
-            -- that length. The data structures and screen are updated for any
-            -- word found.
-
-            type Count_Elements is record
-               Count : Natural := 0;
-               Stored_Index : Fill_Lists.Extended_Index := Fill_Lists.No_index;
-            end record; -- Count_Element
-
-            Count_Array : array (Word_Lengths) of Count_Elements;
-            Placement_Set : Word_Sets.Set := Word_Sets.Empty_Set;
-
-         begin -- Check_Unique
-            for F in Fill_List_Indices range 1 .. Last_Index (Fill_List) loop
-               if not Fill_List (F).Used then
-                  Count_Array (Fill_List (F).Word_Length).Count :=
-                    Count_Array (Fill_List (F).Word_Length).Count + 1;
-                  Count_Array (Fill_List (F).Word_Length).Stored_Index := F;
-               end if; -- not Fill_List (F).Used
-            end loop; -- F in Fill_List_Indices range 1 ...
-            for W in Word_Lengths loop
-               if Count_Array (W).Count = 1 then
-                  Clear (Placement_Set);
-                  Progress := True;
-                  for I in Word_Indices loop
-                     if not Word_List (I).Used and
-                       Length (Word_List (I).Word) = W then
-                        Include (Placement_Set, I);
-                     end if; -- I in Word_Indices
-                  end loop; -- I in Word_Indices
-                  if Length (Placement_Set) = 1 then
-                     Update (Grid, Word_List, Fill_List,
-                             Count_Array (W).Stored_Index,
-                             First_Element (Placement_Set), 'u');
-                  else
-                     raise Unique_Error with "One remaining space of length" &
-                       Word_Lengths'Image (W) & " with" &
-                       Natural'Image (Count_Array (W).Count) &
-                       " words remaining to be placed.";
-                  end if; -- Length (Placement_Set) = 1
-               end if; -- Count_Array (W).Count = 1
-            end loop; -- W in Word_Lengths
-            end Check_Unique;
+         procedure Check_Unique_I is new
+           Check_Unique (Update_Procedure => Update);
 
          Progress, All_Placed : Boolean;
          Placement_Set : Word_Sets.Set := Word_Sets.Empty_Set;
          Pass_Count : Positive := 1;
-         Words_Not_Placed : Natural := 0;
          Solution_Set : Solution_Sets.Set := Solution_Sets.Empty_Set;
          Update_Type : Update_Types;
 
@@ -1248,7 +1324,7 @@ procedure WordFit is
             All_Placed := True;
             -- Attempt to find Fill_List elements for which only one of a
             -- particular length exists.
-            Check_Unique (Grid, Word_List, Fill_List, Progress);
+            Check_Unique_I (Grid, Word_List, Fill_List, Progress);
             for F in Fill_List_Indices range 1 .. Last_Index (Fill_List) loop
                if not Fill_List (F).Used then
                   -- Check in one direction, looking for a unique word to
@@ -1286,20 +1362,17 @@ procedure WordFit is
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Passes:" & Positive'Image (Pass_Count));
          Put (Debug_File, "Passes:" & Positive'Image (Pass_Count));
-         Put (Grid);
          if All_Placed then
             Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
+            -- If verification failss the screen display will not show all words
+            -- placed.
             Put (" All words placed");
          else
-            for F in Iterate (Fill_List) loop
-               if not Fill_List (F).Used then
-                  Words_Not_Placed := Words_Not_Placed + 1;
-               end if; -- not Fill_List (I).Used
-            end loop; -- F in Iterate (Fill_List)
-            Put (" Words not placed:" & Natural'Image (Words_Not_Placed));
+            Put (" Words not placed:" &
+                   Natural'Image (Words_Not_Placed (Word_List)));
             Put_Line (Debug_File, " Words not placed:" &
-                        Natural'Image (Words_Not_Placed));
+                        Natural'Image (Words_Not_Placed (Word_List)));
             Debug_Data_Structures (Grid, Word_List, Fill_List, Word_Map);
             delay Solution_Time;
             Put_Line (Debug_File, "Starting Search");
