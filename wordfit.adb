@@ -2,7 +2,9 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 13/05/2020
+-- Last Edit : 15/05/2020
+-- 20200515 : Corrected some spelling in comments and improved Solve exception
+-- handler.
 -- 20200513 : Reports Fill_Queue length if Queue stretegy does not find a
 -- solution. Check_Unique used to refresh the Fill_Queue if progress stalls.
 -- The Check_Unique procedure was made generic so that the same code could be
@@ -1274,7 +1276,7 @@ procedure WordFit is
          if Words_Not_Placed (Word_List) = 0 then
             Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
-            -- If verification failss the screen display will not show all words
+            -- If verification fails the screen display will not show all words
             -- placed.
             Put (" All words placed");
          else
@@ -1365,7 +1367,7 @@ procedure WordFit is
          if All_Placed then
             Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
-            -- If verification failss the screen display will not show all words
+            -- If verification fails the screen display will not show all words
             -- placed.
             Put (" All words placed");
          else
@@ -1420,6 +1422,7 @@ procedure WordFit is
          Put_Line (Debug_File, "**** Start of Exception Dump ****");
          Debug_Data_Structures (Grid, Word_List, Fill_list, Word_Map);
          Put (Grid);
+         Goto_XY (X_Pos'First, Y_Coordinates'Last);
          raise;
    end Solve;
 

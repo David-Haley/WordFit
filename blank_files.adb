@@ -1,7 +1,9 @@
 -- This progrem creates a blank crosswoed grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 11/05/2020
+-- Last Edit : 15/05/2020
+-- 20200515 : Provided for the removal of unexpected characters, Suspect string
+-- written to list and warning issued.
 -- 20200511 : Ability to read mutiple files containing partial word lists into
 -- into the Base_Name_List.txt file. The files to be combined must nave names
 -- of the form Base_Name_List_n.txt where n is 0, 1, 2 ...
@@ -47,6 +49,7 @@ procedure Blank_Files is
       Letters : String := "LETTERS";
       Start_At, First : Positive;
       Last : Natural;
+      Suspect : Unbounded_String;
 
    begin -- Build_List
       Create (List_File, Out_File, Argument (1) & List_Name);
@@ -67,8 +70,7 @@ procedure Blank_Files is
                                               Crossword_Set) =
                     Last - First + 1 then
                      -- is probable word add to list
-                     Put_Line (List_File, Translate (Slice (Text, First, Last),
-                               Upper_Case_Map));
+                     Put_Line (List_File, Slice (Text, First, Last));
                   elsif Ada.Strings.Fixed.Count (Slice (Text, First, Last),
                                                  Decimal_Digit_Set) =
                     Last - First + 1 then
@@ -80,14 +82,28 @@ procedure Blank_Files is
                                                                 First, Last),
                                                                 Letters) then
                         Put_Line ("Warning expected """ & Letters &
-                                    " and found """ & Slice (Text, First, Last)
-                                  & """ in file:");
+                                    """ and found """ &
+                                    Slice (Text, First, Last) & """ in file:");
                         Put_Line (Name (Part_File));
                         Put_Line ("at Line:" &
-                                    Positive_Count'Image (Line (Part_File)));
+                                    Positive_Count'Image (Line (Part_File)
+                                    - 1));
                      end if; -- Equal_Case_Insensitive (Slice (Text, First ...
-                     -- not transferred to List_File
-                  end if; -- Ada.String.Fixed.Count (Translate (Slice (Text, ...
+                  else
+                     Suspect := Null_Unbounded_String;
+                     for I in Positive range First .. Last loop
+                        if Is_In (Element (Text, I), Crossword_Set) then
+                           Suspect := Suspect & Element (Text, I);
+                        end if; -- Is_In (Element (Text, I), Crossword_Set)
+                     end loop; -- I in Positive range First .. Last
+                     Put_Line ("Warning """ & Slice (Text, First, Last) &
+                                 """ changed to """ & Suspect &
+                                 """ read from file:");
+                     Put_Line (Name (Part_File));
+                     Put_Line ("at Line:" &
+                                 Positive_Count'Image (Line (Part_File) - 1));
+                     Put_Line (List_File, Suspect);
+                  end if; -- Ada.Strings.Fixed.Count (Slice (Text, First, ...
                end if; -- Last > 0
                Start_At := Last + 1;
             end loop; -- Start_At < Length (Text)
