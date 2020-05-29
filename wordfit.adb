@@ -2,7 +2,8 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 15/05/2020
+-- Last Edit : 29/05/2020
+-- 20200529 : Corrected text message when m switch used
 -- 20200515 : Corrected some spelling in comments and improved Solve exception
 -- handler.
 -- 20200513 : Reports Fill_Queue length if Queue stretegy does not find a
@@ -1267,7 +1268,7 @@ procedure WordFit is
                     Positive (2 * Fill_Queue.Current_Use);
                end if; -- Progress
             end if; -- Element_Count = Progress_Limit
-         end loop; -- Fill_Queue.Current_Use > 0 and not No_Progress
+         end loop; -- Fill_Queue.Current_Use > 0 and ...
          Put (Grid);
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Elements Processed:" & Natural'Image (Element_Count));
@@ -1411,7 +1412,7 @@ procedure WordFit is
             Search (Grid, Word_List, Fill_List, Word_Map, Solution_Set, 0);
             Display (Solution_Set);
          when Map =>
-            Put_Line ("Writing Word Map to " & Name (List_File));
+            Put_Line ("Writing Word Map to " & Name (Debug_File));
             Put_Line (Debug_File, "Computer aided solution");
             Put_Map (Word_List, Word_Map);
       end case; -- Solution_Made
