@@ -1,7 +1,10 @@
 -- This progrem creates a blank crosswoed grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 15/05/2020
+-- Last Edit : 09/06/2020
+-- 20200698 : Where characters not in Crossword_Set are eliminated from a
+-- Suspect string resulting in a zero length string nothing is written to the
+-- List_File. Previously a blank line was written.
 -- 20200515 : Provided for the removal of unexpected characters, Suspect string
 -- written to list and warning issued.
 -- 20200511 : Ability to read mutiple files containing partial word lists into
@@ -96,13 +99,19 @@ procedure Blank_Files is
                            Suspect := Suspect & Element (Text, I);
                         end if; -- Is_In (Element (Text, I), Crossword_Set)
                      end loop; -- I in Positive range First .. Last
-                     Put_Line ("Warning """ & Slice (Text, First, Last) &
-                                 """ changed to """ & Suspect &
-                                 """ read from file:");
+                     if Length (Suspect) > 0 then
+                        Put_Line ("Warning """ & Slice (Text, First, Last) &
+                                    """ changed to """ & Suspect &
+                                    """, read from file:");
+                        Put_Line (List_File, Suspect);
+                     else
+                        Put_Line ("Warning """ & Slice (Text, First, Last) &
+                                    """ removed nothing written," &
+                                    " read from file:");
+                     end if; -- Length (Suspect) > 0
                      Put_Line (Name (Part_File));
                      Put_Line ("at Line:" &
                                  Positive_Count'Image (Line (Part_File) - 1));
-                     Put_Line (List_File, Suspect);
                   end if; -- Ada.Strings.Fixed.Count (Slice (Text, First, ...
                end if; -- Last > 0
                Start_At := Last + 1;

@@ -2,7 +2,8 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 29/05/2020
+-- Last Edit : 30/05/2020
+-- 20200530 : Improved formatting of debug file
 -- 20200529 : Corrected text message when m switch used
 -- 20200515 : Corrected some spelling in comments and improved Solve exception
 -- handler.
@@ -242,6 +243,16 @@ procedure WordFit is
       subtype Update_Types is Character with
         Static_Predicate => Update_Types in 'n' | 'o' | 'u';
 
+      package Nat_IO is new Ada.Text_IO.Integer_IO (Natural);
+      package Bool_IO is new Ada.Text_IO.Enumeration_IO (Boolean);
+      package X_IO is new Ada.Text_IO.Integer_IO (X_Coordinates);
+      package Y_IO is new Ada.Text_IO.Integer_IO (Y_Coordinates);
+      package WL_IO is new Ada.Text_IO.Integer_IO (Word_Lengths);
+      package LP_IO is new Ada.Text_IO.Integer_IO (Letter_Positions);
+      package FL_IO is new Ada.Text_IO.Integer_IO (Fill_List_Indices);
+      package WI_IO is new Ada.Text_IO.Integer_IO (Word_Indices);
+      package Dir_IO is new Ada.Text_IO.Enumeration_IO (Directions);
+
       Debug_File : File_Type;
 
       procedure Put (Grid : in Grids;
@@ -332,12 +343,24 @@ procedure WordFit is
 
       begin -- Put_Map
          Put_Line (Debug_File, "Word_Map Structure Report");
-         Put_Line (Debug_File, "Word_Length Letter Letter_Position Word_Set");
+         Put_Line (Debug_File, "      P");
+         Put_Line (Debug_File, "      o");
+         Put_Line (Debug_File, " L L  s");
+         Put_Line (Debug_File, " e e  i");
+         Put_Line (Debug_File, " n t  t");
+         Put_Line (Debug_File, " g t  i");
+         Put_Line (Debug_File, " t e  o");
+         Put_Line (Debug_File, " h r  n Word Set");
          for I in Iterate (Word_Map) loop
-            Put (Debug_File, Word_Lengths'Image (Key (I).Word_Length) & ' ' &
-                   Key (I).Letter &
-                   Letter_Positions'Image (Key (I).Letter_Position));
+            WL_IO.Put (Debug_File, Key (I).Word_Length, 2);
+            Put (Debug_File, ' ' & Key (I).Letter);
+            LP_IO.Put (Debug_File, Key (I).Letter_Position, 3);
             for E in Iterate (Word_Map (I)) loop
+               if Col (Debug_File) + Positive_Count (Key (I).Word_Length)
+                 > 80 then
+                  New_Line (Debug_File);
+                  Put (Debug_File, 7 * ' ');
+               end if;
                Put (Debug_File, " " & Word_List (Element (E)).Word);
             end loop; -- Debug_Data_Structures
             New_Line (Debug_File);
@@ -352,49 +375,49 @@ procedure WordFit is
 
       begin -- Debug_Data_Structures
          Put_Line (Debug_File, "Grid Structure Report");
+         Put_Line (Debug_File, "Coord     Fill List");
+         Put_Line (Debug_File, " X  Y Chr Accr Down");
          for Y in Y_Coordinates loop
             for X in X_Coordinates loop
                if Grid (X, Y).Ch /= Block_Ch then
-                  Put (Debug_File, '(' & X_Coordinates'Image (X) & ',' &
-                         Y_Coordinates'Image (Y) & "): '" & Grid (X, Y).Ch &
-                         "' ");
+                  X_IO.Put (Debug_File, X, 2);
+                  Y_IO.Put (Debug_File, Y, 3);
+                  Put (Debug_File, " '" & Grid (X, Y).Ch & ''');
                   for D in Directions loop
-                     Put (Debug_File, ' ' & Directions'Image (D));
                      if Grid (X, Y).Cross_Array (D) = Fill_Lists.No_Index then
-                        Put (Debug_File, " No_Index,");
+                        Put (Debug_File, "   --");
                      else
                         F := Grid (X, Y).Cross_Array (D);
-                        Put (Debug_File,
-                             Fill_List_Indices'Image
-                               (Grid (X, Y).Cross_Array (D)));
+                        FL_IO.Put (Debug_File, Grid (X, Y).Cross_Array (D), 5);
                      end if; --  Grid (X, Y).Cross_Array (D) = ...
-                     if D /= Directions'Last then
-                        Put (Debug_File, ", ");
-                     end if; -- D /= Directions'Last
                   end loop; -- D in Directions
                   New_Line (Debug_File);
                end if; -- Grid (X, Y).Ch /= Block_Ch
             end loop; -- X in X_Coordinates
          end loop; -- Y in Y_Coordinates
          Put_Line (Debug_File, "Word_List Structure Report");
+         Put_Line (Debug_File, "Index Placed Word");
          for I in Word_Indices loop
-            Put_Line (Debug_File, '(' & Word_Indices'Image (I) & "): " &
-                        Word_List (I).Word & ' ' &
-                        Boolean'Image (Word_List (I).Used));
+            WI_IO.Put (Debug_File, I, 5);
+            Put (Debug_File, ' ');
+            Bool_IO.Put (Debug_File, Word_List (I).Used, 7, Lower_Case);
+            Put (Debug_File, Word_List (I).Word);
+            New_Line (Debug_File);
          end loop; -- I in Word_Indices
          Put_Line (Debug_File, "Fill_List Structure Report");
+         Put_Line (Debug_File, "Fill  Coord Direct");
+         Put_Line (Debug_File, "Index  X  Y ion    Word");
          for I in Iterate (Fill_List) loop
-            Put (Debug_File, '(' &  Fill_List_Indices'Image (To_Index (I))
-                 & "): (" &
-                   X_Coordinates'Image (Fill_List (I).X) & ',' &
-                   Y_Coordinates'Image (Fill_List (I).Y) & ") " &
-                   Directions'Image (Fill_List (I).Direction) &
-                   Word_Lengths'Image (Fill_List (I).Word_Length));
+            FL_IO.Put (Debug_File, To_Index (I), 5);
+            X_IO.Put (Debug_File, Fill_List (I).X, 3);
+            Y_IO.Put (Debug_File, Fill_List (I).Y, 3);
+            Put (Debug_File, ' ');
+            Dir_IO.Put (Debug_File, Fill_List (I).Direction, 7, Lower_Case);
             if Fill_List (I).Used then
-               Put_Line (Debug_File, " """ &
-                           Word_List (Fill_List (I).Word_Index).Word & """");
+               Put_Line (Debug_File, Word_List (Fill_List (I).Word_Index).Word);
             else
-               Put_Line (Debug_File, " """"");
+               Put_Line (Debug_File, '"' & Fill_List (I).Word_Length * ' ' &
+                        '"');
             end if; -- Fill_List (I).Used
          end loop; -- I in Iterate (Fill_List (W, D))
          Put_Map (Word_List, Word_Map);
@@ -439,12 +462,16 @@ procedure WordFit is
               Check_Array (Length (Word_List (I).Word),
                            Word_List (I).Used).Word_Count + 1;
          end loop; -- I in Word_Indices
+         Put_Line (Debug_File, "       Not Placed   Placed");
+         Put_Line (Debug_File, " Word  Fill  Word Fill  Word");
+         Put_Line (Debug_File, "Length List  List List  List");
          for W in Word_Lengths loop
-            Put_Line (Debug_File, Word_Lengths'Image (W) &
-                        Natural'Image (Check_Array (W, False).Fill_Count) &
-                        Natural'Image (Check_Array (W, False).Word_Count) &
-                        Natural'Image (Check_Array (W, True).Fill_Count) &
-                        Natural'Image (Check_Array (W, True).Word_Count));
+            WL_IO.Put (Debug_File, W, 6);
+            Nat_IO.Put (Debug_File, Check_Array (W, False).Fill_Count, 5);
+            Nat_IO.Put (Debug_File, Check_Array (W, False).Word_Count, 6);
+            Nat_IO.Put (Debug_File, Check_Array (W, True).Fill_Count, 5);
+            Nat_IO.Put (Debug_File, Check_Array (W, True).Word_Count, 6);
+            New_Line (Debug_File);
             if Check_Array (W, False).Fill_Count /=
               Check_Array (W, False).Word_Count then
                raise Verification_Error with "For word length" &
@@ -1106,8 +1133,9 @@ procedure WordFit is
          Fill_List (F).Used := True;
          Fill_List (F).Word_Index := Word_Index;
          Word_List (Word_Index).Used := True;
-         Put_Line (Debug_File, '(' &  Fill_List_Indices'Image (F) & "): " &
-                     Word_List (Word_Index).Word & ' ' & Update_Type);
+         FL_IO.Put (Debug_File, F, 3);
+         Put_Line (Debug_File, ' ' & Update_Type & ' ' &
+                     Word_List (Word_Index).Word);
          for P in Letter_Positions range 1 .. Fill_List (F).Word_Length loop
             if Fill_List (F).Direction = Across then
                X := Fill_List (F).X + P - 1;
