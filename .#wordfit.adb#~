@@ -13,7 +13,7 @@
 -- to allow puzzles with multiple solutions to be solved. The  termination
 -- criteria has been tightened up to reduce unnecessary requeueing before Search
 -- is invoked. New huerestics have been applied to Search to terminate decent if
--- no word can be placed in an empty Fill_List_Eleement.
+-- no word can be placed in an empty Fell_List_
 -- 20200530 : Improved formatting of debug file
 -- 20200529 : Corrected text message when m switch used
 -- 20200515 : Corrected some spelling in comments and improved Solve exception
