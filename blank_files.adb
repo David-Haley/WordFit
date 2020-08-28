@@ -1,7 +1,9 @@
 -- This progrem creates a blank crosswoed grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 09/06/2020
+-- Last Edit : 28/08/2020
+-- 20200828 : Provide for progression to the next line of text if there is one
+-- or more delimiters between the last word and the end of line.
 -- 20200698 : Where characters not in Crossword_Set are eliminated from a
 -- Suspect string resulting in a zero length string nothing is written to the
 -- List_File. Previously a blank line was written.
@@ -113,8 +115,12 @@ procedure Blank_Files is
                      Put_Line ("at Line:" &
                                  Positive_Count'Image (Line (Part_File) - 1));
                   end if; -- Ada.Strings.Fixed.Count (Slice (Text, First, ...
+                  Start_At := Last + 1;
+               else
+                  Start_At := Length (Text);
+                  -- To get here it is assumed that there was nothing other than
+                  -- delimiters between Start_At and the end of line.
                end if; -- Last > 0
-               Start_At := Last + 1;
             end loop; -- Start_At < Length (Text)
          end loop;
          Close (Part_File);
