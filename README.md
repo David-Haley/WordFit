@@ -8,7 +8,7 @@ command line parameter e.g. wordfit CM_20200504. The solution is displayed on
 the screen and and written to Base_Name_Debug.txt along with debugging
 information which may help in determining why no solution was found.
 
-Optional command line switches i, m, q or r can be used to select the process
+Optional command line switches c, i, m, q or r can be used to select the process
 used to solve the puzzle. With the i switch iteration is used. with the m
 switch, a word map only is produced in the debug file (Manual computer aided
 solution). The q switch process on change of state basis queueing a location to
@@ -16,7 +16,12 @@ be filled when each new letter is placed. The r switch uses recursion to search
 for one or more solutions. If the i or q switches fail to solve the puzzle
 recursion is invoked. This will occur if the puzzle has multiple or no solution.
 If no switch is supplies the queue solution is invoked. For example the
-following would use iteration: wordfit CM_20200504 i
+following would use iteration: wordfit CM_20200504 i. The c switch is used to
+force the solver to continue if there is a miss match between the number of
+words supplied and the number of spaces in the puzzle to be filled. This is
+requires to solve puzzles published in Woman's Day which have an extra word in
+the word list that cannot fit in the solution. This word can be found by
+inspection of the _debug.txt file after the solver has finished.
 
 Blank_Files creates a skeletal grid file and a word list file which can then be
 edited with your favorite text editor. It takes three parameters, Base_Name X Y

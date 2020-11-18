@@ -2,7 +2,12 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 14/06/2020
+-- Last Edit : 17/11/2020
+-- 20201117 : New command line switch c and associated
+-- Enable_Fill_List_Exceptions added to allow solver to proceed to if there is a
+-- missmatch between the number of items elements in the Fill_List and
+-- the Word_List. Required to solve puzzles published in Women's Day.
+-- 20201016 : Down scan error message corrected.
 -- 20200614 : Check_Unique removed, Check_One_Direction now returns all words
 -- which will fit if there are no letters to match, this makes it behave like
 -- Check_Unique. A new data structure Length_List was required to initialise
@@ -12,8 +17,8 @@
 -- queue is refreshed from all unused Fill_List elements. This is done once only
 -- to allow puzzles with multiple solutions to be solved. The  termination
 -- criteria has been tightened up to reduce unnecessary requeueing before Search
--- is invoked. New huerestics have been applied to Search to terminate decent if
--- no word can be placed in an empty Fill_List_Eleement.
+-- is invoked. New huerestics have been applied to Search to terminate descent
+-- if no word can be placed in an empty Fill_List_Eleement.
 -- 20200530 : Improved formatting of debug file
 -- 20200529 : Corrected text message when m switch used
 -- 20200515 : Corrected some spelling in comments and improved Solve exception
@@ -165,7 +170,12 @@ procedure WordFit is
    procedure Solve (Grid_File, List_File : in out File_Type;
                     X_Limit, Y_Limit, X_Screen, Y_Screen : in Positive;
                     Word_Count, Shortest_Word, Longest_Word : in Positive;
-                    Solution_Mode : in Solution_Modes) is
+                    Solution_Mode : in Solution_Modes;
+                    Enable_Fill_List_Exceptions : in Boolean) is
+
+      -- Does what it says on the can!
+      -- Note Enable_Fill_List_Exceptions is used as a global switch and is not
+      -- passed as aparameter.
 
       Word_Time : Duration := 0.1;
       Pass_Time : Duration := 1.0;
@@ -480,9 +490,9 @@ procedure WordFit is
       procedure Verify_Fill_List (Word_List : in Word_Lists;
                                   Fill_List : in Fill_Lists.Vector) is
 
-         -- Raises an exception if the the available spaces for words of a
-         -- specific length does not match the number of words of that
-         -- length.
+         -- Raises an exception when Enable_Fill_List_Exceptions is true and
+         -- the the available spaces for words of a specific length does not
+         -- match the number of words of that length.
 
          type Check_Element is record
             Fill_Count, Word_Count : Natural := 0;
@@ -492,6 +502,9 @@ procedure WordFit is
 
       begin -- Verify_Fill_List
          Put_Line (Debug_File, "Verification of Fill_List");
+         if not Enable_Fill_List_Exceptions then
+            Put_Line (Debug_File, "No mismatch exceptions will be raise");
+         end if; -- not Enable_Fill_List_Exceptions
          for F in Iterate (Fill_List) loop
             Check_Array (Fill_List (F).Word_Length,
                          Fill_List (F).Used).Fill_Count :=
@@ -514,24 +527,26 @@ procedure WordFit is
             Nat_IO.Put (Debug_File, Check_Array (W, True).Fill_Count, 5);
             Nat_IO.Put (Debug_File, Check_Array (W, True).Word_Count, 6);
             New_Line (Debug_File);
-            if Check_Array (W, False).Fill_Count /=
-              Check_Array (W, False).Word_Count then
-               raise Verification_Error with "For word length" &
-                 Word_Lengths'Image (W) & " there are" &
-                 Natural'Image (Check_Array (W, False).Fill_Count) &
-                 " spaces to fill" &
-                 Natural'Image (Check_Array (W, False).Word_Count) &
-                 " words available";
-            end if; -- Check_Array (W, False).Fill_Count /= ...
-            if Check_Array (W, True).Fill_Count /=
-              Check_Array (W, True).Word_Count then
-               raise Verification_Error with "For word length" &
-                 Word_Lengths'Image (W) & " there are" &
-                 Natural'Image (Check_Array (W, False).Fill_Count) &
-                 " spaces filled" &
-                 Natural'Image (Check_Array (W, False).Word_Count) &
-                 " words used";
-            end if; -- Check_Array (W, True).Fill_Count /= /= ...
+            if Enable_Fill_List_Exceptions then
+               if Check_Array (W, False).Fill_Count /=
+                 Check_Array (W, False).Word_Count then
+                  raise Verification_Error with "For word length" &
+                    Word_Lengths'Image (W) & " there are" &
+                    Natural'Image (Check_Array (W, False).Fill_Count) &
+                    " spaces to fill" &
+                    Natural'Image (Check_Array (W, False).Word_Count) &
+                    " words available";
+               end if; -- Check_Array (W, False).Fill_Count /= ...
+               if Check_Array (W, True).Fill_Count /=
+                 Check_Array (W, True).Word_Count then
+                  raise Verification_Error with "For word length" &
+                    Word_Lengths'Image (W) & " there are" &
+                    Natural'Image (Check_Array (W, False).Fill_Count) &
+                    " spaces filled" &
+                    Natural'Image (Check_Array (W, False).Word_Count) &
+                    " words used";
+               end if; -- Check_Array (W, True).Fill_Count /= /= ...
+            end if; -- Enable_Fill_List_Exceptions
          end loop; -- W in Word_Lengths
          Put_Line (Debug_File, "Verification of Fill_List Complete");
       end Verify_Fill_List;
@@ -657,7 +672,7 @@ procedure WordFit is
                   Run := Run + 1;
                end loop; -- List_Element.Y + Run <= Y_Coordinates'Last ...
                if Run in Word_Lengths then
-                  -- Eliminates case of there being just one cell across
+                  -- Eliminates case of there being just one cell down
                   List_Element.Word_Length := Run;
                   if List_Element.Used then
                      Origin_X := List_Element.X;
@@ -675,7 +690,7 @@ procedure WordFit is
                   raise Fill_List_Error with "At (" &
                     X_Coordinates'Image (List_Element.X) & ',' &
                     Y_Coordinates'Image (List_Element.Y) &
-                    ") available Across space" & Natural'Image (Run) &
+                    ") available Down space" & Natural'Image (Run) &
                     " does not match Word_Lengths range" &
                     Word_Lengths'Image (Word_Lengths'First) & " .." &
                     Word_Lengths'Image (Word_Lengths'Last);
@@ -1457,11 +1472,14 @@ procedure WordFit is
    Shortest_Word, Longest_Word : Positive;
    Solution_Mode : Solution_Modes := Queued;
    -- Default to queued mode.
+   Enable_Fill_List_Exceptions : Boolean := True;
 
 begin -- WordFit
-   if Argument_Count = 1 or Argument_Count = 2 then
-      if Argument_Count = 2 then
-         case Argument (2) (1) is
+   if Argument_Count > 0 then
+      for I in Natural range 2 .. Argument_Count loop
+         case Argument (I) (1) is
+            when 'c' | 'C' =>
+               Enable_Fill_List_Exceptions := False;
             when 'i' | 'I' =>
                Solution_Mode := Iterative;
             when 'm' | 'M' =>
@@ -1472,8 +1490,8 @@ begin -- WordFit
                Solution_Mode := Recursive;
             when others =>
                null;
-         end case; -- Argument (2) (1)
-      end if; -- Argument_Count = 2
+         end case; -- Argument (I) (1)
+      end loop; -- I in Natural range 2 .. Argument_Count
       Open (List_File, In_File, Argument (1) & List_Name);
       Find_Limits (List_File, Word_Count, Shortest_Word, Longest_Word);
       if Solution_Mode = Map then
@@ -1481,7 +1499,8 @@ begin -- WordFit
          Y_Limit := 1;
          -- required to pass in-range values to Solve, not used in Map mode
          Solve (Grid_File, List_File, X_Limit, Y_Limit, X_Screen, Y_Screen,
-                Word_Count, Shortest_Word, Longest_Word, Solution_Mode);
+                Word_Count, Shortest_Word, Longest_Word, Solution_Mode,
+                Enable_Fill_List_Exceptions);
       else
          Open (Grid_File, In_File, Argument (1) & Grid_Name);
          Find_Limits (Grid_File, X_Limit, Y_Limit);
@@ -1492,18 +1511,21 @@ begin -- WordFit
             Y_Screen := Y_Limit;
          end if; -- Y_limit > Default_Height
          Solve (Grid_File, List_File, X_Limit, Y_Limit, X_Screen, Y_Screen,
-                Word_Count, Shortest_Word, Longest_Word, Solution_Mode);
+                Word_Count, Shortest_Word, Longest_Word, Solution_Mode,
+                Enable_Fill_List_Exceptions);
          Close (Grid_File);
       end if; -- Solution_Mode /= Map
       Close (List_File);
    else
-      Put_Line ("Usage: WordFit Base_File_Name {i | m | q | r}");
+      Put_Line ("Usage: WordFit Base_File_Name {i | m | q | r } {c}");
       New_Line;
       Put_Line ("The optional switches are as follows:");
       Put_Line ("'i' : Solve by Iteration");
       Put_Line ("'m' : Computer assistance only, word Map produced");
       Put_Line ("'q' : Solve on change of state basis using a Queue");
       Put_Line ("'r' : Solve by Recursion");
+      Put_Line ("'c' : Continue to solve if there is a mismatch between the");
+      Put_Line ("      mumber of words to place and the spaces available");
       New_Line;
       Put_Line ("Notes:");
       Put_Line ("(1) When 'm' switch is used, only a *" & List_Name &
@@ -1517,5 +1539,5 @@ begin -- WordFit
       Put_Line ("(4) If the input files do not have a solution, either an");
       Put_Line ("    error message will be given or the solver will");
       Put_Line ("    terminate with an incomplete solution.");
-   end if; -- Argument_Count = 1
+   end if; -- Argument_Count > 0
 end WordFit;
