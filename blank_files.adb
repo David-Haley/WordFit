@@ -1,7 +1,8 @@
 -- This progrem creates a blank crosswoed grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 28/08/2020
+-- Last Edit : 30/12/2021
+-- 20211230 : Move to next line if nothing follows a number.
 -- 20200828 : Provide for progression to the next line of text if there is one
 -- or more delimiters between the last word and the end of line.
 -- 20200698 : Where characters not in Crossword_Set are eliminated from a
@@ -94,6 +95,11 @@ procedure Blank_Files is
                                     Positive_Count'Image (Line (Part_File)
                                     - 1));
                      end if; -- Equal_Case_Insensitive (Slice (Text, First ...
+                     if Last = 0 then
+                        Last := Length (Text);
+                        -- if nothing was found ensure that parsing moves on to
+                        -- next line.
+                     end if; -- Last = 0
                   else
                      Suspect := Null_Unbounded_String;
                      for I in Positive range First .. Last loop
