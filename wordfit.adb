@@ -2,7 +2,8 @@
 -- is populated from a list of words. There are no clues or numbered squares.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 17/11/2020
+-- Last Edit : 04/01/2022
+-- 20220104 : Solution or soloutions written to file _Solution.txt.
 -- 20201117 : New command line switch c and associated
 -- Enable_Fill_List_Exceptions added to allow solver to proceed to if there is a
 -- missmatch between the number of items elements in the Fill_List and
@@ -277,7 +278,7 @@ procedure WordFit is
       package WI_IO is new Ada.Text_IO.Integer_IO (Word_Indices);
       package Dir_IO is new Ada.Text_IO.Enumeration_IO (Directions);
 
-      Debug_File : File_Type;
+      Debug_File, Solution_File : File_Type;
 
       procedure Put (Grid : in Grids;
                      X : in X_Coordinates;
@@ -341,7 +342,7 @@ procedure WordFit is
             Get_Line (List_File, Text);
             Trim (Text, Both); -- remove leading or trailing spaces
             if Length (Text) > 0 then
-                Word_List (I).Word := Text;
+               Word_List (I).Word := Text;
                if I < Word_Indices'Last then
                   I := I + 1;
                end if; -- I < Word_Indices'Last
@@ -363,16 +364,17 @@ procedure WordFit is
          end loop; -- I in Word_Indices
       end Build_Length_List;
 
-      procedure Put (Grid : in Grids) is
+      procedure Put (Output_File : in File_Type;
+                     Grid : in Grids) is
 
       begin -- Put
          for Y in Y_Coordinates loop
             for X in X_Coordinates loop
-               Put (Debug_File, Grid (X, Y).Ch);
+               Put (Output_File, Grid (X, Y).Ch);
             end loop; -- X in X_Coordinates
-            New_Line (Debug_File);
+            New_Line (Output_File);
          end loop; -- Y in Y_Coordinates
-         Put_Line (Debug_File, X_Coordinates'Last * '-');
+         Put_Line (Output_File, X_Coordinates'Last * '-');
       end Put;
 
       procedure Put_Map (Word_List : in Word_Lists;
@@ -825,7 +827,7 @@ procedure WordFit is
                                  Pp : in Letter_Positions;
                                  Dc : in Directions;
                                  Word_Index : in Word_Indices)
-                                    return Count_Type is
+                                 return Count_Type is
 
             -- Counts the number of words satisfying the condition of having
             -- the same letter at the intersection of the Prime and Cross
@@ -891,7 +893,7 @@ procedure WordFit is
       end Negation_Check;
 
       function Solution_Index (X : in X_Coordinates; Y : in Y_Coordinates)
-                                  return Solution_Indices is
+                               return Solution_Indices is
 
       begin -- Solution_Index
          return X + X_Coordinates'Last * (Y - 1);
@@ -918,19 +920,13 @@ procedure WordFit is
 
       begin -- Display
          for S in Iterate (Solution_Set) loop
-            Put_Line (Debug_File,
-                      "Solution" & Positive'Image (Solution_Count) & " of" &
-                        Count_Type'Image (Length (Solution_Set)) &
-                        " found by Search");
             Solution_String := Element (S);
             Clear_Screen;
             for Y in Y_Coordinates loop
                Goto_XY (X_Pos'First, Y - 1);
                for X in X_Coordinates loop
                   Put (Solution_String (Solution_Index (X, Y)));
-                  Put (Debug_File, Solution_String (Solution_Index (X, Y)));
                end loop; -- X in X_Coordinates
-               New_Line (Debug_File);
             end loop; -- Y in Y_Coordinates
             Goto_XY (X_Pos'First, Y_Coordinates'Last);
             Put_Line ("Solution" & Positive'Image (Solution_Count) & " of" &
@@ -942,6 +938,30 @@ procedure WordFit is
             end if; -- S /= Last (Solution_Set)
          end loop; -- S in Iterate (Solution_Set)
       end Display;
+
+      procedure Put (Output_File : in File_Type;
+                     Solution_Set : in Solution_Sets.Set) is
+
+         Solution_Count : Positive := 1;
+         Solution_String : Solution_Strings;
+
+      begin -- Put
+         for S in Iterate (Solution_Set) loop
+            Put_Line (Output_File,
+                      "Solution" & Positive'Image (Solution_Count) & " of" &
+                        Count_Type'Image (Length (Solution_Set)) &
+                        " found by Search");
+            Solution_String := Element (S);
+            for Y in Y_Coordinates loop
+               for X in X_Coordinates loop
+                  Put (Output_File, Solution_String (Solution_Index (X, Y)));
+               end loop; -- X in X_Coordinates
+               New_Line (Output_File);
+            end loop; -- Y in Y_Coordinates
+            Solution_Count := Solution_Count + 1;
+            Put_Line (Output_File, X_Coordinates'Last * '-');
+         end loop; -- S in Iterate (Solution_Set)
+      end Put;
 
       procedure Verify_Solution (Grid : in Grids;
                                  Word_List_In : Word_Lists;
@@ -1027,7 +1047,7 @@ procedure WordFit is
 
       begin -- Search
          Put_Line (Debug_File, "Search Depth:" & Natural'Image (Depth));
-         Put (Grid);
+         Put ( Debug_File, Grid);
          loop -- iterate over Fill_List
             if not Fill_List (F).Used then
                Unused_Found := True;
@@ -1101,7 +1121,7 @@ procedure WordFit is
          when Search_Error | Verification_Error =>
             Put_Line (Debug_File, "**** Start of Search Level" &
                         Natural'Image (Depth) & " Exception Dump ****");
-            Put (Grid);
+            Put ( Debug_File, Grid);
             Debug_Data_Structures (Grid, Word_List, Length_List, Fill_List,
                                    Word_Map);
             raise;
@@ -1233,14 +1253,14 @@ procedure WordFit is
 
       begin -- Queued_Place_Words
          Put_Line (Debug_File, "Queued solution strategy");
-         Put (Grid);
+         Put ( Debug_File, Grid);
          -- initialise Fill_Queue based on intial word
          for F in Fill_List_Indices range 1 .. Last_Index (Fill_List) loop
             if Fill_List (F).Used then
                Update_Queue (Grid, Fill_List, F);
             end if; -- Fill_List (F).Used
          end loop; -- F in Fill_List_Indices range 1 .. Last_Index (Fill_List)
-                   -- Progress_Limit := Positive (2 * Fill_Queue.Current_Use);
+         -- Progress_Limit := Positive (2 * Fill_Queue.Current_Use);
          Progress_Limit := Fill_Queue.Current_Use + 1;
          Put_Line (Debug_File, "Queue initialised with" &
                      Count_Type'Image (Fill_Queue.Current_Use) &
@@ -1248,7 +1268,7 @@ procedure WordFit is
          while Fill_Queue.Current_Use > 0 and
            Element_Count <= Progress_Limit loop
             Fill_Queue.Dequeue (Fq);
-               Element_Count := Element_Count + 1;
+            Element_Count := Element_Count + 1;
             if not Fill_List (Fq).Used then
                -- Check in one direction, looking for a unique word to
                -- satisfy letters within the current Fill_List element
@@ -1293,7 +1313,6 @@ procedure WordFit is
                end if; -- Refresh
             end if; -- Element_Count = Progress_Limit
          end loop; -- Fill_Queue.Current_Use > 0 and ...
-         Put (Grid);
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Elements Processed:" & Count_Type'Image (Element_Count));
          Put (Debug_File,
@@ -1304,7 +1323,11 @@ procedure WordFit is
             -- If verification fails the screen display will not show all words
             -- placed.
             Put (" All words placed");
+            Put_Line (Solution_File, "Solution");
+            Put (Solution_File, Grid);
          else
+            Put_Line (Debug_File, "Solution");
+            Put (Debug_File, Grid);
             Put (" Queue length:" &
                    Count_Type'Image (Fill_Queue.Current_Use));
             Put (Debug_File, " Queue length:" &
@@ -1320,6 +1343,7 @@ procedure WordFit is
             Search (Grid, Word_List, Length_List, Fill_List, Word_Map,
                     Solution_Set, 0);
             Display (Solution_Set);
+            Put (Solution_File, Solution_Set);
          end if; -- Words_Not_Placed (Word_List) = 0
       end Queued_Place_Words;
 
@@ -1347,7 +1371,7 @@ procedure WordFit is
       begin -- Iterative_Place_Words
          Put_Line (Debug_File, "Iterative solution strategy");
          loop -- repeat attempting to place words
-            Put (Grid);
+            Put ( Debug_File, Grid);
             Put_Line (Debug_File, "Start Pass:" & Positive'Image (Pass_Count));
             Progress := False;
             All_Placed := True;
@@ -1387,9 +1411,11 @@ procedure WordFit is
          end loop; -- repeat attempting to place words
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          Put ("Passes:" & Positive'Image (Pass_Count));
-         Put (Grid);
+         Put (Debug_File, Grid);
          Put (Debug_File, "Passes:" & Positive'Image (Pass_Count));
          if All_Placed then
+            Put_Line (Solution_File, "Solution");
+            Put (Solution_File, Grid);
             Put_Line (Debug_File, " All words placed");
             Verify_Solution (Grid, Word_List, Fill_List);
             -- If verification fails the screen display will not show all words
@@ -1407,6 +1433,7 @@ procedure WordFit is
             Search (Grid, Word_List, Length_List, Fill_List, Word_Map,
                     Solution_Set, 0);
             Display (Solution_Set);
+            Put (Solution_File, Solution_Set);
          end if; -- All_Placed
       end Iterative_Place_Words;
 
@@ -1424,6 +1451,8 @@ procedure WordFit is
       Build_Length_List (Word_List, Length_List);
       Build_Word_Map (Word_List, Word_Map);
       if Solution_Mode /= Map then
+         Create (Solution_File, Out_File, Argument (1) &
+                   "_Solution.txt");
          Clear_Screen;
          Read_Grid (Grid_File, Grid);
          Build_Fill_List (Grid, Word_List, Fill_List);
@@ -1443,11 +1472,15 @@ procedure WordFit is
             Search (Grid, Word_List, Length_List, Fill_List, Word_Map,
                     Solution_Set, 0);
             Display (Solution_Set);
+            Put (Solution_File, Solution_Set);
          when Map =>
             Put_Line ("Writing Word Map to " & Name (Debug_File));
             Put_Line (Debug_File, "Computer aided solution");
             Put_Map (Word_List, Word_Map);
       end case; -- Solution_Made
+      if Solution_Mode /= Map then
+         Close (Solution_File);
+      end if; -- Solution_Mode /= Map
       Close (Debug_File);
    exception
       when  Fill_List_Error | Update_Error | Unique_Error |
@@ -1455,7 +1488,7 @@ procedure WordFit is
          Put_Line (Debug_File, "**** Start of Exception Dump ****");
          Debug_Data_Structures (Grid, Word_List, Length_list, Fill_list,
                                 Word_Map);
-         Put (Grid);
+         Put (Debug_File, Grid);
          Goto_XY (X_Pos'First, Y_Coordinates'Last);
          raise;
    end Solve;
