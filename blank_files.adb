@@ -1,7 +1,8 @@
--- This progrem creates a blank crosswoed grid and empty word list.
+-- This progrem creates a blank crossword grid and empty word list.
 -- Author    : David Haley
 -- Created   : 03/04/2020
--- Last Edit : 30/12/2021
+-- Last Edit : 11/09/2022
+-- 20220911 : List sorted based on length and then by collation order.
 -- 20211230 : Move to next line if nothing follows a number.
 -- 20200828 : Provide for progression to the next line of text if there is one
 -- or more delimiters between the last word and the end of line.
@@ -24,9 +25,22 @@ with Ada.Strings.Maps; use Ada.Strings.Maps;
 with Ada.Strings.Maps.Constants; use Ada.Strings.Maps.Constants;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Directories; use Ada.Directories;
+with Ada.Containers.Ordered_Sets;
 with Common; use Common;
 
 procedure Blank_Files is
+
+   function Less_Than (Left, Right : Unbounded_String) return Boolean is
+
+   begin -- Less_Than
+      return Length (Left) < Length (Right) or
+        (Length (Left) = Length (Right) and Left < Right);
+   end Less_Than;
+
+   package Word_Lists is new
+     Ada.Containers.Ordered_Sets (Unbounded_String, "<" => Less_Than);
+
+   use Word_Lists;
 
    procedure Ruler (Grid_File : in File_Type; Width : in Positive) is
 
@@ -49,6 +63,7 @@ procedure Blank_Files is
       end Build_Part_Name;
 
       List_File, Part_File : File_Type;
+      Word_List : Word_Lists.Set;
       File_Number : Natural := 0;
       Text : Unbounded_String;
       Delimiter_Set : Character_Set := To_Set (' ');
@@ -76,7 +91,7 @@ procedure Blank_Files is
                                               Crossword_Set) =
                     Last - First + 1 then
                      -- is probable word add to list
-                     Put_Line (List_File, Slice (Text, First, Last));
+                     Include (Word_List, Unbounded_Slice (Text, First, Last));
                   elsif Ada.Strings.Fixed.Count (Slice (Text, First, Last),
                                                  Decimal_Digit_Set) =
                     Last - First + 1 then
@@ -111,7 +126,7 @@ procedure Blank_Files is
                         Put_Line ("Warning """ & Slice (Text, First, Last) &
                                     """ changed to """ & Suspect &
                                     """, read from file:");
-                        Put_Line (List_File, Suspect);
+                        Include (Word_List, Suspect);
                      else
                         Put_Line ("Warning """ & Slice (Text, First, Last) &
                                     """ removed nothing written," &
@@ -132,9 +147,11 @@ procedure Blank_Files is
          Close (Part_File);
          File_Number := File_Number + 1;
       end loop; -- Exists (Build_Part_Name (File_Number))
-      Put_Line ("Words added to list" &
-                  Natural'Image (Natural (Line (List_File)) - 1));
+      for I in Iterate (Word_List) loop
+         Put_Line (List_File, Word_List (I));
+      end loop; -- I in Iterate (Word_List)
       Close (List_File);
+      Put_Line ("Words added to list" & Length (Word_List)'Img);
    end Build_List;
 
    Height, Width : Positive;

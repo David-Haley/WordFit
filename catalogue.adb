@@ -103,6 +103,7 @@ procedure Catalogue is
    Solution_List : Solution_Lists.Vector := Solution_Lists.Empty_Vector;
    Solution_Map : Solution_Maps.Map;
    Multiple_Solution_List : Multiple_Solution_Lists.Map;
+   Duplicate_Count : Natural := 0;
 
 begin -- Catalogue
    Recursive_Search (Argument (1), Solution_List);
@@ -119,10 +120,16 @@ begin -- Catalogue
             Put_Line (Solution_Map (M) (L));
          end loop; -- L in Iterate (Solution_Map (M))
          New_Line;
+         Duplicate_Count := Duplicate_Count + 1;
       end if; -- Length (Solution_Map (M)) > 1
    end loop; -- M in Iterate (Solution_Map)
+   Put_Line ("Number of Duplicates Found:" & Duplicate_Count'Img);
+   New_Line;
    Put_Line ("Multiple Solution Report");
    for M in Iterate (Multiple_Solution_List) loop
       Put_Line (Key (M) & Positive'Image (Multiple_Solution_List (M)));
    end loop; -- M in Iterate (Multiple_Solution_List)
+   New_Line;
+   Put_Line ("Number of Puzzles with Multiple Solutions:" &
+               Count_Type'Image (Length (Multiple_Solution_List)));
 end Catalogue;
